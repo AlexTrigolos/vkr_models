@@ -63,7 +63,7 @@ def fit_secids_from_s3(dir, secids=None):
     try:
         directories = download_secid_names(dir)
         for secid in directories:
-            if (secids is None or secid in secids) and secid > 'DASB':
+            if (secids is None or secid in secids) and secid >= 'HEAD':
                 if secids is not None:
                     secids.remove(secid)
                 fit_secid(secid, download_data_frame_from_s3(dir, secid))
@@ -173,7 +173,7 @@ def fit_secid(secid, data_frame):
   for lag in lag_names:
     if secid_data[lag].isnull().sum() > 0:
       temp = secid_data.dropna(subset=[lag])
-      if (len(temp) < 62 and len(secid_data) >= 62) or len(temp) * 4 < len(secid_data):
+      if (len(temp) < 62 and len(secid_data) >= 62) or len(temp) * 4 < len(secid_data) or len(temp) < 10:
         secid_data = secid_data.drop(columns=[lag])
       else:
         secid_data = temp
