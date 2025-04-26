@@ -63,7 +63,7 @@ def fit_secids_from_s3(dir, secids=None):
     try:
         directories = download_secid_names(dir)
         for secid in directories:
-            if (secids is None or secid in secids) and secid >= 'HEAD':
+            if (secids is None or secid in secids):
                 if secids is not None:
                     secids.remove(secid)
                 fit_secid(secid, download_data_frame_from_s3(dir, secid))
@@ -179,6 +179,8 @@ def fit_secid(secid, data_frame):
         secid_data = temp
         break
   secid_data = secid_data.reset_index().drop('index', axis=1)
+  if secid_data.shape[0] < 6:
+    return
 
   # Разбиваем данные, в валидацию идет 20%
   train_size = int(len(secid_data) * 0.8)
