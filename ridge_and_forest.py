@@ -4,6 +4,7 @@ import boto3
 import traceback
 import io
 import json
+import xgboost
 
 import pandas as pd
 import numpy as np
@@ -16,6 +17,7 @@ from sklearn.metrics import make_scorer
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.preprocessing import MinMaxScaler
+from xgboost import XGBRegressor
 import copy
 import datetime
 import pickle
@@ -63,7 +65,7 @@ def fit_secids_from_s3(dir, secids=None):
     try:
         directories = download_secid_names(dir)
         for secid in directories:
-            if (secids is None or secid in secids):
+            if (secids is None or secid in secids) and secid > 'AFLT':
                 if secids is not None:
                     secids.remove(secid)
                 fit_secid(secid, download_data_frame_from_s3(dir, secid))
@@ -111,17 +113,34 @@ ridge_grid_params = {
     'fit_intercept': [True, False]
 }
 
+xgboost_grid_params = {
+    'random_state': [42],
+    'n_estimators': [100, 200, 300],
+    'learning_rate': [0.01, 0.1, 0.2],
+    'max_depth': [3, 5, 7],
+    'min_child_weight': [1, 3, 5],
+    'subsample': [0.5, 0.7, 1.0],
+    'colsample_bytree': [0.5, 0.7, 1.0],
+    'gamma': [0, 1, 5]
+}
+
 base_models = [
-    {
-        'name': 'ridge',
-        'model': Ridge(),
-        'grid_params': ridge_grid_params,
-        'importances_name': 'coef_'
-    },
+    # {
+    #     'name': 'ridge',
+    #     'model': Ridge(),
+    #     'grid_params': ridge_grid_params,
+    #     'importances_name': 'coef_'
+    # },
+    #  {
+    #     'name': 'random_forest',
+    #     'model': RandomForestRegressor(),
+    #     'grid_params': random_forest_grid_params,
+    #     'importances_name': 'feature_importances_'
+    # },
      {
-        'name': 'random_forest',
-        'model': RandomForestRegressor(),
-        'grid_params': random_forest_grid_params,
+        'name': 'xgboost',
+        'model': XGBRegressor(),
+        'grid_params': xgboost_grid_params,
         'importances_name': 'feature_importances_'
     }
 ]
@@ -144,7 +163,7 @@ def upload_models_data_to_s3(secid, model_name, body):
 # Делаем GridSearch используя разделение для временных рядов и возвращаем лучшую модель
 def fit_grid_search_with_cross_val(data, model, param_grid, target):
     tscv = TimeSeriesSplit(n_splits=5)
-    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, cv=tscv, verbose=0, scoring=rmse_score)
+    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, cv=tscv, verbose=2, scoring=rmse_score)
     grid_search.fit(data.drop(target, axis=1), data[target])
     print(f'Лучшие параметры: {grid_search.best_params_}')
     return grid_search.best_estimator_, grid_search.best_params_
